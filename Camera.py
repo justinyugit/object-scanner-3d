@@ -2,7 +2,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-class Canera:
+class Camera:
 
     def __init__(self):
         # Configure depth and color streams
@@ -12,7 +12,9 @@ class Canera:
         config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
         # Start streaming
-        self.pipeline.start(config)
+        profile = self.pipeline.start(config)
+        p = profile.get_stream(rs.stream.color)
+        self.intr = p.as_video_stream_profile().get_intrinsics()
 
     def get_frames(self):
         # Wait for a coherent pair of frames: depth and color
@@ -29,10 +31,13 @@ class Canera:
     def stop(self):
         # Stop streaming
         self.pipeline.stop()
+    
+    def get_intrinsic(self):
+        return np.array([[self.intr.fx, 0, self.intr.ppx], [0, self.intr.fy, self.intr.ppy], [0,0,1]])
 
 # Example usage
 if __name__ == "__main__":
-    camera = Canera()
+    camera = Camera()
 
     try:
         while True:
