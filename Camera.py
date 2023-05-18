@@ -15,6 +15,7 @@ class Camera:
         profile = self.pipeline.start(config)
         p = profile.get_stream(rs.stream.color)
         self.intr = p.as_video_stream_profile().get_intrinsics()
+        self.depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
 
     def get_frames(self):
         # Wait for a coherent pair of frames: depth and color
@@ -25,8 +26,8 @@ class Camera:
         # Convert images to numpy arrays
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
-
-        return depth_image, color_image
+        
+        return depth_image / self.depth_scale, color_image
 
     def stop(self):
         # Stop streaming

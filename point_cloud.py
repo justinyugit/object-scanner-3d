@@ -25,6 +25,13 @@ cy = intr[1][2]
 R = np.load("R.npy")
 T = np.squeeze(np.load("T.npy"))
 
+print(f"R: {R}")
+print(f"T: {T}")
+f = np.vstack([np.hstack([R, T.reshape(3,1)]), [0,0,0,1]])
+print(f"f{f}")
+print(f"invf = {np.linalg.inv(f)}")
+
+
 eyeinhand_transform = np.vstack([np.hstack([R.T, -R.T @ T.reshape(3,1)]), [0,0,0,1]])
 
 
@@ -38,16 +45,71 @@ robot_transform = np.vstack([np.hstack([robot_r1, robot_t1.reshape(3, 1)]), [0, 
 depth_image, _ = camera.get_frames()
 rows, cols = depth_image.shape[:2]
 x, y = np.meshgrid(np.arange(cols), np.arange(rows))
-x = (x - cx) * depth_image / fx
-y = (y - cy) * depth_image / fy
-z = depth_image.copy()
-point_cloud1 = np.stack((x, y, z), axis=-1)
+x = (x - cx) * depth_image / fx / 1000
+y = (y - cy) * depth_image / fy /1000
+z = depth_image.copy() /1000
 
-for point in point_cloud1:
-    print(point)
-    homogeneous_points = np.hstack((point, np.ones((len(point), 1))))
-    homogeneous_points_world = np.dot(robot_r1, homogeneous_points.T).T
-v = pptk.viewer(homogeneous_points_world[:,:3])
+point_cloud1 = np.stack((x, y, z), axis=-1)
+T_camera_endeffector = np.vstack([np.hstack([R.T, -R.T @ T.reshape(3, 1)]), [0, 0, 0, 1]])
+T_endeffector_robotbase = np.vstack([np.hstack([robot_r1, robot_t1.reshape(3, 1)]), [0, 0, 0, 1]])
+
+
+pc = []
+for i in range(len(point_cloud1)):
+    for j in range(len(point_cloud1[i])):
+        point = point_cloud1[i][j]
+        point_endeffector = np.linalg.inv(T_camera_endeffector) @ np.hstack([point, 1])
+        point_endeffector = point_endeffector[:3]
+
+        # Transform the 3D point from the end-effector coordinates to the robot base coordinates
+        point_robotbase = T_endeffector_robotbase @ np.hstack([point_endeffector, 1])
+        point_robotbase = point_robotbase[:3]
+        pc.append(point_robotbase)
+        #homogeneous_points = np.hstack((point, np.ones((len(point), 1))))
+        # homogeneous_points_world = np.dot(robot_r1, homogeneous_points.T).T
+
+pc = np.array(pc).reshape(480,640,3)
+
+print("next")
+time.sleep(5)
+
+#########################
+
+robot_t1 = np.array(list(robot.get_pos()))
+robot_r1 = np.squeeze(list(robot.get_orientation()))
+robot_transform = np.vstack([np.hstack([robot_r1, robot_t1.reshape(3, 1)]), [0, 0, 0, 1]])
+
+depth_image, _ = camera.get_frames()
+rows, cols = depth_image.shape[:2]
+x, y = np.meshgrid(np.arange(cols), np.arange(rows))
+x = (x - cx) * depth_image / fx 
+y = (y - cy) * depth_image / fy 
+z = depth_image.copy() 
+point_cloud2 = np.stack((x, y, z), axis=-1)
+T_camera_endeffector = np.vstack([np.hstack([R.T, -R.T @ T.reshape(3, 1)]), [0, 0, 0, 1]])
+T_endeffector_robotbase = np.vstack([np.hstack([robot_r1, robot_t1.reshape(3, 1)]), [0, 0, 0, 1]])
+
+
+pc2 = []
+for i in range(len(point_cloud2)):
+    for j in range(len(point_cloud2[i])):
+        point = point_cloud2[i][j]
+        point_endeffector = np.linalg.inv(T_camera_endeffector) @ np.hstack([point, 1])
+        
+        point_endeffector = point_endeffector[:3]
+
+        # Transform the 3D point from the end-effector coordinates to the robot base coordinates
+        point_robotbase = T_endeffector_robotbase @ np.hstack([point_endeffector, 1])
+        point_robotbase = point_robotbase[:3]
+        pc2.append(point_robotbase)
+
+
+pc2 = np.array(pc2).reshape(480,640,3)
+
+pc3 = np.concatenate((pc, pc2), axis=0)
+
+v = pptk.viewer([pc, pc2])
+
 exit()
 
 
